@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#171b1e">
+<title>Angle Meter</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #171b1e;
+    --ink: #ece6d9;
+    --dim: #858d89;
+    --line: #2d3438;
+    --raise: #22282c;
+    --turn: #7cc4d4;
+    --tilt: #e2aa4c;
+    --earth: #3b3024;
+    --warn: #e2785a;
+    --font: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--font);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; touch-action: manipulation; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--turn); outline-offset: 2px; }
+
+  /* ---------- Layout: portrait default ---------- */
+  .app {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0,1fr) minmax(0,1fr) auto;
+    grid-template-areas: "status" "turn" "tilt" "controls";
+    gap: 6px;
+    padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 12px)
+             calc(env(safe-area-inset-bottom) + 10px) calc(env(safe-area-inset-left) + 12px);
+  }
+  .status { grid-area: status; }
+  #turnDial { grid-area: turn; }
+  #tiltDial { grid-area: tilt; }
+  .controls { grid-area: controls; }
+
+  /* ---------- Layout: landscape (primary) ---------- */
+  @media (orientation: landscape) {
+    .app {
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(132px, 172px);
+      grid-template-rows: auto minmax(0,1fr);
+      grid-template-areas: "status status controls" "turn tilt controls";
+      column-gap: 10px;
+      padding-top: calc(env(safe-area-inset-top) + 6px);
+      padding-bottom: calc(env(safe-area-inset-bottom) + 6px);
+    }
+  }
+
+  .status {
+    display: flex; align-items: center; gap: 8px; min-height: 22px;
+    font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden;
+  }
+  .status span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; }
+  .lamp.live { background: #8fd6a8; }
+  .lamp.hold { background: var(--tilt); }
+  .lamp.warn { background: var(--warn); }
+
+  .dial { min-height: 0; min-width: 0; display: block; width: 100%; height: 100%; overflow: visible; }
+
+  /* ---------- Controls ---------- */
+  .controls { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; align-content: end; }
+  @media (orientation: landscape) {
+    .controls { grid-template-columns: 1fr; align-content: center; }
+  }
+  .btn {
+    border-radius: 14px; padding: 14px 10px; font-size: 16px; font-weight: 650;
+    background: var(--raise); border: 1px solid var(--line);
+  }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn[aria-pressed="true"] { background: var(--tilt); color: var(--bg); border-color: var(--tilt); }
+  .aim { grid-column: 1 / -1; }
+  .aim-label { font-size: 12px; color: var(--dim); margin: 0 0 5px 2px; }
+  .seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--raise); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+  .seg button { font-size: 13px; font-weight: 600; padding: 8px 0; border-radius: 9px; color: var(--dim); }
+  .seg button[aria-checked="true"] { background: var(--line); color: var(--ink); }
+  @media (orientation: landscape) {
+    .seg { grid-template-columns: 1fr 1fr; }
+    .btn { padding: 12px 8px; }
+  }
+  @media (orientation: landscape) and (max-height: 340px) {
+    .btn { padding: 9px 8px; font-size: 15px; }
+    .seg button { padding: 6px 0; }
+    .aim-label { display: none; }
+  }
+
+  /* ---------- Start sheet ---------- */
+  .sheet {
+    position: fixed; inset: 0; z-index: 5; background: var(--bg);
+    display: grid; place-items: center; text-align: center;
+    padding: calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 24px)
+             calc(env(safe-area-inset-bottom) + 16px) calc(env(safe-area-inset-left) + 24px);
+  }
+  .sheet[hidden] { display: none; }
+  .sheet-inner { max-width: 420px; display: grid; gap: 14px; justify-items: center; }
+  .sheet h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+  .sheet p { font-size: 15px; line-height: 1.45; color: var(--dim); }
+  .sheet .btn { width: 100%; max-width: 280px; padding: 16px; font-size: 17px; }
+  .sheet .err { color: var(--warn); font-size: 14px; min-height: 1em; }
+  @media (orientation: landscape) and (max-height: 420px) {
+    .sheet-inner { gap: 8px; } .sheet h1 { font-size: 21px; } .sheet p { font-size: 14px; }
+  }
+
+  /* SVG text */
+  .t-label { font-size: 11px; fill: var(--dim); font-weight: 600; }
+  .t-num { font-size: 30px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .t-dir { font-size: 11px; font-weight: 600; }
+  .t-tick { font-size: 8px; fill: var(--dim); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="status" role="status" aria-live="polite"><span id="lamp" class="lamp"></span><span id="status">Waiting for sensors</span></div>
+
+  <!-- Turn (x/y): seen from above, 0 at top, clockwise = right -->
+  <svg id="turnDial" class="dial" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" aria-label="Turn angle">
+    <circle cx="100" cy="100" r="86" fill="none" stroke="var(--line)" stroke-width="6"/>
+    <g id="turnTicks"></g>
+    <path id="turnArc" fill="none" stroke="var(--turn)" stroke-width="6" stroke-linecap="round"/>
+    <circle id="turnDot" r="7" fill="var(--turn)" stroke="var(--bg)" stroke-width="3" cx="100" cy="14"/>
+    <text class="t-label" x="100" y="74" text-anchor="middle">Turn  x/y</text>
+    <text id="turnNum" class="t-num" x="100" y="112" text-anchor="middle">–</text>
+    <text id="turnDir" class="t-dir" x="100" y="132" text-anchor="middle" fill="var(--turn)"> </text>
+  </svg>
+
+  <!-- Tilt (x/z): side view, aim points right, lower half = earth -->
+  <svg id="tiltDial" class="dial" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" aria-label="Tilt angle">
+    <path d="M14,100 A86,86 0 0 0 186,100 Z" fill="var(--earth)" opacity=".55"/>
+    <circle cx="100" cy="100" r="86" fill="none" stroke="var(--line)" stroke-width="6" opacity=".45"/>
+    <path d="M100,14 A86,86 0 0 1 100,186" fill="none" stroke="var(--line)" stroke-width="6"/>
+    <line x1="4" y1="100" x2="196" y2="100" stroke="var(--line)" stroke-width="1"/>
+    <g id="tiltTicks"></g>
+    <path id="tiltArc" fill="none" stroke="var(--tilt)" stroke-width="6" stroke-linecap="round"/>
+    <circle id="tiltDot" r="7" fill="var(--tilt)" stroke="var(--bg)" stroke-width="3" cx="186" cy="100"/>
+    <text class="t-label" x="100" y="74" text-anchor="middle">Tilt  x/z</text>
+    <text id="tiltNum" class="t-num" x="100" y="112" text-anchor="middle">–</text>
+    <text id="tiltDir" class="t-dir" x="100" y="132" text-anchor="middle" fill="var(--tilt)"> </text>
+  </svg>
+
+  <div class="controls">
+    <button id="zero" class="btn primary" type="button">Set zero</button>
+    <button id="hold" class="btn" type="button" aria-pressed="false">Hold</button>
+    <div class="aim">
+      <div class="aim-label">Aim direction</div>
+      <div class="seg" role="radiogroup" aria-label="Aim direction">
+        <button type="button" role="radio" data-aim="auto" aria-checked="true">Auto</button>
+        <button type="button" role="radio" data-aim="back" aria-checked="false">Back</button>
+        <button type="button" role="radio" data-aim="top" aria-checked="false">Top</button>
+        <button type="button" role="radio" data-aim="side" aria-checked="false">Side</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-inner">
+    <h1>Angle meter</h1>
+    <p>Mount the phone in any position. Zero is set from wherever it sits when you start, and you can reset it anytime.</p>
+    <button id="enable" class="btn primary" type="button">Enable sensors</button>
+    <p class="err" id="sheetErr"></p>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const DEG = Math.PI / 180, RAD = 180 / Math.PI;
+  const SMOOTH = 0.3;
+
+  let q = null;            // current device->world quaternion
+  let q0 = null;           // quaternion at zero
+  let screenAt0 = 0;       // UI rotation at zero
+  let aimMode = 'auto';
+  let ref = null;          // { local, fwd, right, aimUsed }
+  let turnF = null, tiltF = null;
+  let held = false, lastEvt = 0, enabled = false, wakeLock = null;
+
+  /* ---------- Quaternions [w,x,y,z]; W3C order Rz(alpha)·Rx(beta)·Ry(gamma) ---------- */
+  const mul = (a, b) => {
+    const [w,x,y,z] = a, [W,X,Y,Z] = b;
+    return [w*W-x*X-y*Y-z*Z, w*X+x*W+y*Z-z*Y, w*Y-x*Z+y*W+z*X, w*Z+x*Y-y*X+z*W];
+  };
+  const aa = (ax, ang) => { const s = Math.sin(ang/2); return [Math.cos(ang/2), ax[0]*s, ax[1]*s, ax[2]*s]; };
+  const conj = p => [p[0], -p[1], -p[2], -p[3]];
+  const rot = (p, v) => { const t = mul(mul(p, [0, ...v]), conj(p)); return [t[1], t[2], t[3]]; };
+  const fromEuler = (a, b, g) => mul(mul(aa([0,0,1], a*DEG), aa([1,0,0], b*DEG)), aa([0,1,0], g*DEG));
+  const wrap = a => ((a + 180) % 360 + 360) % 360 - 180;
+  const hlen = v => Math.hypot(v[0], v[1]);
+
+  /* ---------- Aim axes in device coordinates ---------- */
+  function screenAngle() {
+    let a = typeof window.orientation === 'number' ? window.orientation
+          : (screen.orientation && screen.orientation.angle) || 0;
+    return ((a % 360) + 360) % 360;
+  }
+  function deviceAxis(name, ang) {
+    if (name === 'back') return [0, 0, -1];               // out of the rear camera
+    // edge that is at the top of the screen as displayed
+    const top = ang === 90 ? [1,0,0] : ang === 270 ? [-1,0,0] : ang === 180 ? [0,-1,0] : [0,1,0];
+    if (name === 'top') return top;
+    return [top[1], -top[0], 0];                           // displayed right edge
+  }
+  const AIM_NAMES = { back: 'out the back', top: 'top edge', side: 'right edge' };
+
+  function buildReference() {
+    if (!q0) return;
+    let aim = aimMode;
+    if (aim === 'auto') {
+      // Screen facing mostly up/down -> phone is lying flat-ish -> top edge aims.
+      // Otherwise phone is upright-ish -> the back of the phone aims.
+      const nz = rot(q0, [0,0,1])[2];
+      aim = Math.abs(nz) > 0.707 ? 'top' : 'back';
+    }
+    let world = rot(q0, deviceAxis(aim, screenAt0));
+    let note = '';
+    if (hlen(world) < 0.2) {
+      // Chosen axis points almost straight up/down: pick the most horizontal one instead.
+      let best = null;
+      for (const n of ['back', 'top', 'side']) {
+        const w = rot(q0, deviceAxis(n, screenAt0));
+        if (!best || hlen(w) > hlen(best.w)) best = { n, w };
+      }
+      note = AIM_NAMES[aim] + ' is vertical, using ' + AIM_NAMES[best.n];
+      aim = best.n; world = best.w;
+    }
+    const m = hlen(world);
+    const fwd = [world[0]/m, world[1]/m, 0];                // horizontal aim at zero
+    const right = [fwd[1], -fwd[0], 0];                     // clockwise from above
+    // Lock that horizontal direction to the device so it rotates with it.
+    ref = { local: rot(conj(q0), fwd), fwd, right, aimUsed: aim, note };
+  }
+
+  function setZero() {
+    if (!q) { setStatus('No sensor readings yet', 'warn'); return; }
+    q0 = q.slice();
+    screenAt0 = screenAngle();
+    turnF = 0; tiltF = 0;
+    buildReference();
+    if (held) toggleHold();
+    render(0, 0);
+    flashStatus();
+  }
+
+  function flashStatus() {
+    if (!ref) return;
+    const base = 'Zeroed, aiming ' + AIM_NAMES[ref.aimUsed] + (aimMode === 'auto' ? ' (auto)' : '');
+    setStatus(ref.note ? ref.note : base, ref.note ? 'warn' : 'live');
+  }
+
+  /* ---------- Measure ---------- */
+  function measure() {
+    if (!ref || !q) return;
+    const f = rot(q, ref.local);              // where the aim line points now (world)
+    const flat = hlen(f);
+    const tilt = Math.atan2(-f[2], flat) * RAD;   // + = toward earth
+    tiltF = tiltF === null ? tilt : tiltF + (tilt - tiltF) * SMOOTH;
+    let turn = null;
+    if (flat > 0.03) {
+      turn = Math.atan2(f[0]*ref.right[0] + f[1]*ref.right[1], f[0]*ref.fwd[0] + f[1]*ref.fwd[1]) * RAD;
+      turnF = turnF === null ? turn : wrap(turnF + wrap(turn - turnF) * SMOOTH);
+    }
+    if (!held) render(turn === null ? null : turnF, tiltF);
+  }
+
+  /* ---------- Drawing ---------- */
+  const C = 100, R = 86;
+  const pt = (a, r = R) => [C + r * Math.sin(a*DEG), C - r * Math.cos(a*DEG)];   // a: clockwise from 12 o'clock
+  function arc(a0, a1) {
+    if (Math.abs(a1 - a0) < 0.3) return '';
+    const [x0,y0] = pt(a0), [x1,y1] = pt(a1);
+    return `M${x0.toFixed(2)},${y0.toFixed(2)} A${R},${R} 0 ${Math.abs(a1-a0) > 180 ? 1 : 0} ${a1 > a0 ? 1 : 0} ${x1.toFixed(2)},${y1.toFixed(2)}`;
+  }
+  const fmt = v => (v < 0 ? '−' : v > 0 ? '+' : '') + Math.abs(v).toFixed(1) + '°';
+
+  function render(turn, tilt) {
+    if (turn === null) {
+      $('turnNum').textContent = '—';
+      $('turnDir').textContent = 'undefined, aim is vertical';
+      $('turnArc').setAttribute('d', '');
+    } else {
+      const t = Math.abs(turn) < 0.05 ? 0 : turn;
+      $('turnNum').textContent = fmt(t);
+      $('turnDir').textContent = Math.abs(t) < 0.2 ? 'on zero' : t > 0 ? 'right' : 'left';
+      $('turnArc').setAttribute('d', arc(0, t));
+      const [x, y] = pt(t); $('turnDot').setAttribute('cx', x); $('turnDot').setAttribute('cy', y);
+    }
+    if (tilt !== null) {
+      const v = Math.abs(tilt) < 0.05 ? 0 : tilt;
+      $('tiltNum').textContent = fmt(v);
+      $('tiltDir').textContent = Math.abs(v) < 0.2 ? 'level' : v > 0 ? 'toward earth' : 'away from earth';
+      $('tiltArc').setAttribute('d', arc(90, 90 + v));
+      const [x, y] = pt(90 + v); $('tiltDot').setAttribute('cx', x); $('tiltDot').setAttribute('cy', y);
+    }
+  }
+
+  function ticks(el, from, to, labelFn) {
+    const ns = 'http://www.w3.org/2000/svg';
+    for (let a = from; a <= to; a += 15) {
+      const major = a % 90 === 0, mid = a % 45 === 0;
+      const [x0, y0] = pt(a, 79), [x1, y1] = pt(a, major ? 70 : mid ? 73 : 75);
+      const l = document.createElementNS(ns, 'line');
+      Object.entries({ x1: x0, y1: y0, x2: x1, y2: y1, stroke: major ? 'var(--ink)' : 'var(--dim)', 'stroke-width': major ? 1.5 : 1, opacity: major ? .7 : .5 })
+        .forEach(([k, v]) => l.setAttribute(k, v));
+      el.appendChild(l);
+      const lab = labelFn(a);
+      if (lab) {
+        const [tx, ty] = pt(a, 61);
+        const t = document.createElementNS(ns, 'text');
+        t.setAttribute('x', tx); t.setAttribute('y', ty + 3); t.setAttribute('text-anchor', 'middle'); t.setAttribute('class', 't-tick');
+        t.textContent = lab; el.appendChild(t);
+      }
+    }
+  }
+  ticks($('turnTicks'), -165, 180, a => ({ 0: '0', 180: '180' })[a]);
+  ticks($('tiltTicks'), 0, 180, a => ({ 0: '90 up', 180: '90 down' })[a]);
+
+  /* ---------- UI ---------- */
+  function setStatus(msg, kind) { $('status').textContent = msg; $('lamp').className = 'lamp' + (kind ? ' ' + kind : ''); }
+
+  function toggleHold() {
+    held = !held;
+    $('hold').setAttribute('aria-pressed', held);
+    $('hold').textContent = held ? 'Release' : 'Hold';
+    if (held) setStatus('Reading held', 'hold'); else { flashStatus(); measure(); }
+  }
+
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    aimMode = b.dataset.aim;
+    document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-checked', x === b));
+    if (q0) { buildReference(); turnF = null; tiltF = null; measure(); flashStatus(); }
+  }));
+  $('zero').addEventListener('click', setZero);
+  $('hold').addEventListener('click', toggleHold);
+
+  /* ---------- Sensors ---------- */
+  function onOrientation(e) {
+    if (![e.alpha, e.beta, e.gamma].every(Number.isFinite)) return;
+    q = fromEuler(e.alpha, e.beta, e.gamma);
+    lastEvt = Date.now();
+    if (!q0) setZero();      // first reading becomes zero automatically
+    else measure();
+  }
+
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+  }
+  document.addEventListener('visibilitychange', () => { if (enabled && document.visibilityState === 'visible') keepAwake(); });
+
+  $('enable').addEventListener('click', async () => {
+    const err = $('sheetErr');
+    if (!('DeviceOrientationEvent' in window)) { err.textContent = 'This browser has no motion sensors. Open the page in Safari on iPhone.'; return; }
+    if (!window.isSecureContext) { err.textContent = 'Sensors need HTTPS. Host this file on an https:// address and open it in Safari.'; }
+    try {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const p = await DeviceOrientationEvent.requestPermission();
+        if (p !== 'granted') { err.textContent = 'Motion access was denied. Clear website data for this site in Settings › Safari, then try again.'; return; }
+      }
+    } catch (ex) { err.textContent = 'Permission request failed: ' + (ex.message || ex); return; }
+    enabled = true;
+    window.addEventListener('deviceorientation', onOrientation, true);
+    $('sheet').hidden = true;
+    keepAwake();
+    setStatus('Waiting for first reading', 'warn');
+  });
+
+  setInterval(() => {
+    if (enabled && Date.now() - lastEvt > 3000) setStatus(lastEvt ? 'Sensor readings stopped' : 'No readings. Check HTTPS and motion access', 'warn');
+  }, 1500);
+
+  render(null, null);
+  $('turnDir').textContent = ' ';
+})();
+</script>
+</body>
+</html>
