@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Měřič úhlu">
 <meta name="theme-color" content="#171b1e">
-<title>Angle Meter</title>
+<title>Měřič úhlu</title>
 <style>
   :root {
     color-scheme: dark;
@@ -124,7 +124,7 @@
 <body>
 
 <div class="app">
-  <div class="status" role="status" aria-live="polite"><span id="lamp" class="lamp"></span><span id="status">Waiting for sensors</span></div>
+  <div class="status" role="status" aria-live="polite"><span id="lamp" class="lamp"></span><span id="status">Čekání na senzory</span></div>
 
   <!-- Turn (x/y): seen from above, 0 at top, clockwise = right -->
   <svg id="turnDial" class="dial" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" aria-label="Turn angle">
@@ -132,7 +132,7 @@
     <g id="turnTicks"></g>
     <path id="turnArc" fill="none" stroke="var(--turn)" stroke-width="6" stroke-linecap="round"/>
     <circle id="turnDot" r="7" fill="var(--turn)" stroke="var(--bg)" stroke-width="3" cx="100" cy="14"/>
-    <text class="t-label" x="100" y="74" text-anchor="middle">Turn  x/y</text>
+    <text class="t-label" x="100" y="74" text-anchor="middle">Otočení x/y</text>
     <text id="turnNum" class="t-num" x="100" y="112" text-anchor="middle">–</text>
     <text id="turnDir" class="t-dir" x="100" y="132" text-anchor="middle" fill="var(--turn)"> </text>
   </svg>
@@ -146,21 +146,21 @@
     <g id="tiltTicks"></g>
     <path id="tiltArc" fill="none" stroke="var(--tilt)" stroke-width="6" stroke-linecap="round"/>
     <circle id="tiltDot" r="7" fill="var(--tilt)" stroke="var(--bg)" stroke-width="3" cx="186" cy="100"/>
-    <text class="t-label" x="100" y="74" text-anchor="middle">Tilt  x/z</text>
+    <text class="t-label" x="100" y="74" text-anchor="middle">Náklon x/z</text>
     <text id="tiltNum" class="t-num" x="100" y="112" text-anchor="middle">–</text>
     <text id="tiltDir" class="t-dir" x="100" y="132" text-anchor="middle" fill="var(--tilt)"> </text>
   </svg>
 
   <div class="controls">
-    <button id="zero" class="btn primary" type="button">Set zero</button>
-    <button id="hold" class="btn" type="button" aria-pressed="false">Hold</button>
+    <button id="zero" class="btn primary" type="button">Nastavit nulu</button>
+    <button id="hold" class="btn" type="button" aria-pressed="false">Podržet</button>
     <div class="aim">
-      <div class="aim-label">Aim direction</div>
-      <div class="seg" role="radiogroup" aria-label="Aim direction">
+      <div class="aim-label">Směr měření</div>
+      <div class="seg" role="radiogroup" aria-label="Směr měření">
         <button type="button" role="radio" data-aim="auto" aria-checked="true">Auto</button>
-        <button type="button" role="radio" data-aim="back" aria-checked="false">Back</button>
-        <button type="button" role="radio" data-aim="top" aria-checked="false">Top</button>
-        <button type="button" role="radio" data-aim="side" aria-checked="false">Side</button>
+        <button type="button" role="radio" data-aim="back" aria-checked="false">Zadní strana</button>
+        <button type="button" role="radio" data-aim="top" aria-checked="false">Horní hrana</button>
+        <button type="button" role="radio" data-aim="side" aria-checked="false">Boční hrana</button>
       </div>
     </div>
   </div>
@@ -168,9 +168,9 @@
 
 <div class="sheet" id="sheet">
   <div class="sheet-inner">
-    <h1>Angle meter</h1>
-    <p>Mount the phone in any position. Zero is set from wherever it sits when you start, and you can reset it anytime.</p>
-    <button id="enable" class="btn primary" type="button">Enable sensors</button>
+    <h1>Měřič úhlu</h1>
+    <p>Umístěte telefon do požadované polohy. Při spuštění se nastaví nulová poloha a kdykoliv ji můžete znovu nastavit.</p>
+    <button id="enable" class="btn primary" type="button">Povolit senzory</button>
     <p class="err" id="sheetErr"></p>
   </div>
 </div>
@@ -213,15 +213,15 @@
     // edge that is at the top of the screen as displayed
     const top = ang === 90 ? [1,0,0] : ang === 270 ? [-1,0,0] : ang === 180 ? [0,-1,0] : [0,1,0];
     if (name === 'top') return top;
-    return [top[1], -top[0], 0];                           // displayed right edge
+    return [top[1], -top[0], 0];                           // displayed pravou hranou
   }
-  const AIM_NAMES = { back: 'out the back', top: 'top edge', side: 'right edge' };
+  const AIM_NAMES = { back: 'směrem od zadní strany', top: 'horní hranou', side: 'pravou hranou' };
 
   function buildReference() {
     if (!q0) return;
     let aim = aimMode;
     if (aim === 'auto') {
-      // Screen facing mostly up/down -> phone is lying flat-ish -> top edge aims.
+      // Screen facing mostly up/down -> phone is lying flat-ish -> horní hranou aims.
       // Otherwise phone is upright-ish -> the back of the phone aims.
       const nz = rot(q0, [0,0,1])[2];
       aim = Math.abs(nz) > 0.707 ? 'top' : 'back';
@@ -235,7 +235,7 @@
         const w = rot(q0, deviceAxis(n, screenAt0));
         if (!best || hlen(w) > hlen(best.w)) best = { n, w };
       }
-      note = AIM_NAMES[aim] + ' is vertical, using ' + AIM_NAMES[best.n];
+      note = AIM_NAMES[aim] + ' je svisle, používá se ' + AIM_NAMES[best.n];
       aim = best.n; world = best.w;
     }
     const m = hlen(world);
@@ -246,19 +246,19 @@
   }
 
   function setZero() {
-    if (!q) { setStatus('No sensor readings yet', 'warn'); return; }
+    if (!q) { setStatus('Zatím nejsou dostupná data ze senzorů', 'warn'); return; }
     q0 = q.slice();
     screenAt0 = screenAngle();
     turnF = 0; tiltF = 0;
     buildReference();
-    if (held) toggleHold();
+    if (held) togglePodržet();
     render(0, 0);
     flashStatus();
   }
 
   function flashStatus() {
     if (!ref) return;
-    const base = 'Zeroed, aiming ' + AIM_NAMES[ref.aimUsed] + (aimMode === 'auto' ? ' (auto)' : '');
+    const base = 'Nula nastavena, měření: ' + AIM_NAMES[ref.aimUsed] + (aimMode === 'auto' ? ' (automaticky)' : '');
     setStatus(ref.note ? ref.note : base, ref.note ? 'warn' : 'live');
   }
 
@@ -290,19 +290,19 @@
   function render(turn, tilt) {
     if (turn === null) {
       $('turnNum').textContent = '—';
-      $('turnDir').textContent = 'undefined, aim is vertical';
+      $('turnDir').textContent = 'nelze určit, směr je svislý';
       $('turnArc').setAttribute('d', '');
     } else {
       const t = Math.abs(turn) < 0.05 ? 0 : turn;
       $('turnNum').textContent = fmt(t);
-      $('turnDir').textContent = Math.abs(t) < 0.2 ? 'on zero' : t > 0 ? 'right' : 'left';
+      $('turnDir').textContent = Math.abs(t) < 0.2 ? 'v nule' : t > 0 ? 'vpravo' : 'vlevo';
       $('turnArc').setAttribute('d', arc(0, t));
       const [x, y] = pt(t); $('turnDot').setAttribute('cx', x); $('turnDot').setAttribute('cy', y);
     }
     if (tilt !== null) {
       const v = Math.abs(tilt) < 0.05 ? 0 : tilt;
       $('tiltNum').textContent = fmt(v);
-      $('tiltDir').textContent = Math.abs(v) < 0.2 ? 'level' : v > 0 ? 'toward earth' : 'away from earth';
+      $('tiltDir').textContent = Math.abs(v) < 0.2 ? 'vodorovně' : v > 0 ? 'směrem k zemi' : 'směrem od země';
       $('tiltArc').setAttribute('d', arc(90, 90 + v));
       const [x, y] = pt(90 + v); $('tiltDot').setAttribute('cx', x); $('tiltDot').setAttribute('cy', y);
     }
@@ -332,11 +332,11 @@
   /* ---------- UI ---------- */
   function setStatus(msg, kind) { $('status').textContent = msg; $('lamp').className = 'lamp' + (kind ? ' ' + kind : ''); }
 
-  function toggleHold() {
+  function togglePodržet() {
     held = !held;
     $('hold').setAttribute('aria-pressed', held);
-    $('hold').textContent = held ? 'Release' : 'Hold';
-    if (held) setStatus('Reading held', 'hold'); else { flashStatus(); measure(); }
+    $('hold').textContent = held ? 'Uvolnit' : 'Podržet';
+    if (held) setStatus('Hodnota podržena', 'hold'); else { flashStatus(); measure(); }
   }
 
   document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
@@ -345,7 +345,7 @@
     if (q0) { buildReference(); turnF = null; tiltF = null; measure(); flashStatus(); }
   }));
   $('zero').addEventListener('click', setZero);
-  $('hold').addEventListener('click', toggleHold);
+  $('hold').addEventListener('click', togglePodržet);
 
   /* ---------- Sensors ---------- */
   function onOrientation(e) {
@@ -363,23 +363,29 @@
 
   $('enable').addEventListener('click', async () => {
     const err = $('sheetErr');
-    if (!('DeviceOrientationEvent' in window)) { err.textContent = 'This browser has no motion sensors. Open the page in Safari on iPhone.'; return; }
-    if (!window.isSecureContext) { err.textContent = 'Sensors need HTTPS. Host this file on an https:// address and open it in Safari.'; }
+    if (!('DeviceOrientationEvent' in window)) {
+      err.textContent = 'Tento prohlížeč nepodporuje pohybové senzory. Zkuste aktuální Google Chrome pro Android.';
+      return;
+    }
+    if (!window.isSecureContext) {
+      err.textContent = 'Pohybové senzory vyžadují zabezpečené připojení HTTPS. Nahrajte stránku na HTTPS adresu a otevřete ji v Chrome.';
+      return;
+    }
     try {
       if (typeof DeviceOrientationEvent.requestPermission === 'function') {
         const p = await DeviceOrientationEvent.requestPermission();
-        if (p !== 'granted') { err.textContent = 'Motion access was denied. Clear website data for this site in Settings › Safari, then try again.'; return; }
+        if (p !== 'granted') { err.textContent = 'Přístup k pohybovým senzorům byl zamítnut. Povolte pohybové senzory v nastavení webu a zkuste to znovu.'; return; }
       }
-    } catch (ex) { err.textContent = 'Permission request failed: ' + (ex.message || ex); return; }
+    } catch (ex) { err.textContent = 'Žádost o povolení selhala: ' + (ex.message || ex); return; }
     enabled = true;
     window.addEventListener('deviceorientation', onOrientation, true);
     $('sheet').hidden = true;
     keepAwake();
-    setStatus('Waiting for first reading', 'warn');
+    setStatus('Čekání na první měření', 'warn');
   });
 
   setInterval(() => {
-    if (enabled && Date.now() - lastEvt > 3000) setStatus(lastEvt ? 'Sensor readings stopped' : 'No readings. Check HTTPS and motion access', 'warn');
+    if (enabled && Date.now() - lastEvt > 3000) setStatus(lastEvt ? 'Data ze senzorů se přestala aktualizovat' : 'Žádná data. Zkontrolujte HTTPS a přístup k senzorům', 'warn');
   }, 1500);
 
   render(null, null);
